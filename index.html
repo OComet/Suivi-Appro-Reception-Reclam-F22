@@ -321,7 +321,7 @@ input[type="number"].qerr { border-color: var(--er-t); background: rgba(163,45,4
     </div>
     <div style="margin-bottom:10px">
       <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px">Fabricant</div>
-      <input id="stock-fab" type="text" style="width:100%;padding:6px 9px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary);font-size:12px;font-family:var(--font-sans)">
+      <div id="stock-fab-wrap"><input id="stock-fab" type="text" style="width:100%;padding:6px 9px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary);font-size:12px;font-family:var(--font-sans)"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
       <div>
@@ -666,7 +666,7 @@ function renderLigneReception(c, cardId, idx) {
         <button class="ab ab-oc" onclick="window.open('${dsUrl}','_blank')" title="Datasheet"><i class="ti ti-file-text" style="font-size:11px" aria-hidden="true"></i> DS</button>
         <button class="ab ab-oc" onclick="window.open('https://octopart.com/search?q=${mpnEnc}','_blank')" title="Octopart"><i class="ti ti-search" style="font-size:11px" aria-hidden="true"></i> Octopart</button>
         <button class="ab ab-pb" onclick='ouvrirPopupDeclaration({so: ${JSON.stringify(c.so)}, fournisseur: ${JSON.stringify(l.fournisseur)}, num_commande: "", reference: ${JSON.stringify(l.ipn || l.mpn || "")}, probleme: ${JSON.stringify((l.ipn || l.mpn || "") + " — problème signalé depuis Réception")}})' title="Déclarer un problème"><i class="ti ti-alert-triangle" style="font-size:11px" aria-hidden="true"></i> Pb</button>
-        <button class="ab ab-stock" onclick='ouvrirPopupStock(${JSON.stringify({ipn: l.ipn, mpn: l.mpn, attendu: l.attendu, cardId: cardId, idx: idx})})' title="Mettre en stock"><i class="ti ti-package" style="font-size:11px" aria-hidden="true"></i> Add Stock</button>
+        <button class="ab ab-stock" onclick='ouvrirPopupStock(${JSON.stringify({ipn: l.ipn, mpn: l.mpn, attendu: l.attendu, cardId: cardId, idx: idx, fabSuggere: l.fabSuggere || "", fabricantsPossibles: l.fabricantsPossibles || []})})' title="Mettre en stock"><i class="ti ti-package" style="font-size:11px" aria-hidden="true"></i> Add Stock</button>
       </div></td>
     </tr>`;
 }
@@ -869,12 +869,26 @@ async function ouvrirPopupStock(ctx) {
 
   document.getElementById('stock-ipn').value = ctx.ipn || '';
   document.getElementById('stock-mpn').value = ctx.mpn || '';
-  document.getElementById('stock-fab').value = '';
   document.getElementById('stock-qte').value = surplus || '';
   document.getElementById('stock-udm').value = 'pcs';
   document.getElementById('stock-statut-existe').textContent = 'Vérification…';
   document.getElementById('stock-emplacement-wrap').innerHTML = '<div class="loading" style="padding:8px 0"><i class="ti ti-loader-2" aria-hidden="true"></i> Chargement…</div>';
   document.getElementById('ov-stock').classList.add('open');
+
+  const fabWrap = document.getElementById('stock-fab-wrap');
+  const possibles = ctx.fabricantsPossibles || [];
+  if (ctx.fabSuggere) {
+    fabWrap.innerHTML = `<input id="stock-fab" type="text" value="${ctx.fabSuggere}" style="width:100%;padding:6px 9px;border:0.5px solid var(--ok-b);border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary);font-size:12px;font-family:var(--font-sans)" title="Déduit automatiquement du MPN dans la GSheet appro">`;
+  } else if (possibles.length > 1) {
+    fabWrap.innerHTML = `<select id="stock-fab" style="width:100%;padding:6px 9px;border:0.5px solid var(--wa-b);border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary);font-size:12px;font-family:var(--font-sans)">` +
+      `<option value="">— choisir —</option>` +
+      possibles.map(f => `<option value="${f}">${f}</option>`).join('') +
+      `</select>`;
+  } else if (possibles.length === 1) {
+    fabWrap.innerHTML = `<input id="stock-fab" type="text" value="${possibles[0]}" style="width:100%;padding:6px 9px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary);font-size:12px;font-family:var(--font-sans)">`;
+  } else {
+    fabWrap.innerHTML = `<input id="stock-fab" type="text" placeholder="Non trouvé dans l'appro — saisie libre" style="width:100%;padding:6px 9px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary);font-size:12px;font-family:var(--font-sans)">`;
+  }
 
   const [emplacements, verif] = await Promise.all([
     chargerEmplacementsStock(),
@@ -887,7 +901,10 @@ async function ouvrirPopupStock(ctx) {
     })()
   ]);
 
-  if (verif.fab) document.getElementById('stock-fab').value = verif.fab;
+  if (verif.fab) {
+    const fabEl = document.getElementById('stock-fab');
+    if (fabEl) fabEl.value = verif.fab;
+  }
   document.getElementById('stock-statut-existe').textContent = verif.existe
     ? `✓ Article déjà en stock (actuellement ${verif.qte_actuelle ?? '?'} en "${verif.lieu}")`
     : 'Nouvel article — sélectionnez un emplacement';
