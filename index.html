@@ -605,6 +605,12 @@ function renderLigneReception(c, cardId, idx) {
   const mpnEnc = encodeURIComponent(l.mpn || l.ipn || '');
   const dsUrl = 'https://www.google.com/search?q=' + mpnEnc + '+datasheet+filetype:pdf';
 
+  const badgeConfiance = (!touche && l.source_prefill === 'email')
+    ? `<span class="stkinfo" style="color:var(--ok-t);background:rgba(59,109,17,.12)" title="${l.confirme_email_date ? 'Confirm\u00e9 par email le ' + l.confirme_email_date : 'Confirm\u00e9 par email'}">✉️ confirmé</span>`
+    : (!touche && l.source_prefill === 'estimation')
+      ? `<span class="stkinfo" style="color:var(--wa-t)" title="Aucune donn\u00e9e r\u00e9elle disponible \u2014 valeur suppos\u00e9e \u00e0 v\u00e9rifier">? à vérifier</span>`
+      : '';
+
   return `
     <tr id="rl-${cardId}-${idx}" ${rowClass}>
       <td><div class="ipn">${l.ipn || l.mpn}</div><div class="mpn2">${l.ipn && l.mpn && l.mpn !== l.ipn ? l.mpn : ''} ${l.fournisseurRef || ''}</div></td>
@@ -614,6 +620,7 @@ function renderLigneReception(c, cardId, idx) {
         <input type="number" class="${touche ? (ok ? 'qok' : 'qerr') : ''}" value="${recu}" id="qi-${cardId}-${idx}"
           onchange="chgQtyReception('${cardId}', ${idx}, this.value, ${l.attendu})">
         ${touche && !ok ? `<span class="etag">Δ ${recu - l.attendu}</span>` : ''}
+        ${badgeConfiance}
       </div></td>
       <td class="qcell">${touche ? (ok ? '<span style="color:var(--ok-t)">✓</span>' : '<span style="color:var(--er-t)">✗</span>') : '<span style="color:var(--text-muted);font-size:11px">—</span>'}</td>
       <td><div class="ac">
