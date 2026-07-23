@@ -648,7 +648,8 @@ function renderLigneReception(c, cardId, idx) {
 
   const sousLigne = [
     (l.ipn && l.mpn && l.mpn !== l.ipn) ? l.mpn : '',
-    (!estInventory && l.fournisseurRef) ? l.fournisseurRef : ''
+    (!estInventory && l.fournisseurRef) ? l.fournisseurRef : '',
+    (!estInventory && l.bl_email) ? ('BL ' + l.bl_email) : ''
   ].filter(Boolean).join(' · ');
 
   return `
@@ -709,6 +710,7 @@ function renderCarteReception(c) {
         <i class="ti ti-chevron-down chv" aria-hidden="true"></i>
       </div>
       <div class="cbdy">
+        ${(c.colisN2 && c.colisN2.length) ? `<div style="padding:6px 15px;font-size:11px;color:var(--text-muted);border-bottom:0.5px solid var(--border);display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center"><span><i class="ti ti-package" style="font-size:11px" aria-hidden="true"></i> ${c.colisN2.length} colis</span>${c.colisN2.map(k => `<span style="font-family:var(--font-mono,monospace)">BL ${k.n_bl}${k.date_expedition ? ' · ' + fmtDate(k.date_expedition) : ''}${k.statut ? ' · ' + k.statut : ''}</span>`).join('')}</div>` : ''}
         ${c.lignesCompletes > 0 ? `<div style="padding:6px 15px;font-size:11px;color:var(--text-muted);background:rgba(59,109,17,.04);border-bottom:0.5px solid var(--border)">✓ ${c.lignesCompletes} ligne${c.lignesCompletes > 1 ? 's' : ''} déjà complète${c.lignesCompletes > 1 ? 's' : ''} (masquée${c.lignesCompletes > 1 ? 's' : ''})</div>` : ''}
         <table class="lt2">
           <thead><tr><th>IPN</th><th style="text-align:center">Attendu</th><th style="text-align:center">Besoin</th><th style="text-align:center">Reçu</th><th style="text-align:center">Statut</th><th style="text-align:right">Ressources</th></tr></thead>
