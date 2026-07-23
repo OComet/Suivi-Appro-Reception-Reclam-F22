@@ -655,6 +655,7 @@ function renderLigneReception(c, cardId, idx) {
     <tr id="rl-${cardId}-${idx}" ${rowClass}>
       <td><div class="ipn">${l.ipn || l.mpn}${l.stkPP && l.stkPP > 0 ? ` <span class="stkinfo" title="Stock disponible">📦 ${l.stkPP}</span>` : ''}</div>${sousLigne ? `<div class="mpn2">${sousLigne}</div>` : ''}</td>
       <td class="qcell"><span class="qatt">${l.attendu}</span></td>
+      <td class="qcell"><span style="color:var(--text-muted);font-family:var(--font-mono);font-size:12px">${l.besoin || '—'}</span></td>
       <td class="qcell"><div class="qwrap">
         <input type="number" class="${touche ? (ok ? 'qok' : 'qerr') : ''}" value="${recu}" id="qi-${cardId}-${idx}"
           onchange="chgQtyReception('${cardId}', ${idx}, this.value, ${l.attendu})">
@@ -710,7 +711,7 @@ function renderCarteReception(c) {
       <div class="cbdy">
         ${c.lignesCompletes > 0 ? `<div style="padding:6px 15px;font-size:11px;color:var(--text-muted);background:rgba(59,109,17,.04);border-bottom:0.5px solid var(--border)">✓ ${c.lignesCompletes} ligne${c.lignesCompletes > 1 ? 's' : ''} déjà complète${c.lignesCompletes > 1 ? 's' : ''} (masquée${c.lignesCompletes > 1 ? 's' : ''})</div>` : ''}
         <table class="lt2">
-          <thead><tr><th>IPN</th><th style="text-align:center">Attendu</th><th style="text-align:center">Reçu</th><th style="text-align:center">Statut</th><th style="text-align:right">Ressources</th></tr></thead>
+          <thead><tr><th>IPN</th><th style="text-align:center">Attendu</th><th style="text-align:center">Besoin</th><th style="text-align:center">Reçu</th><th style="text-align:center">Statut</th><th style="text-align:right">Ressources</th></tr></thead>
           <tbody>${lignesHtml}</tbody>
         </table>
         <div class="cft">
@@ -872,23 +873,9 @@ async function ouvrirPopupStock(ctx) {
   document.getElementById('stock-qte').value = surplus || '';
   document.getElementById('stock-udm').value = 'pcs';
   document.getElementById('stock-statut-existe').textContent = 'Vérification…';
+  document.getElementById('stock-fab-wrap').innerHTML = '<div class="loading" style="padding:8px 0"><i class="ti ti-loader-2" aria-hidden="true"></i> …</div>';
   document.getElementById('stock-emplacement-wrap').innerHTML = '<div class="loading" style="padding:8px 0"><i class="ti ti-loader-2" aria-hidden="true"></i> Chargement…</div>';
   document.getElementById('ov-stock').classList.add('open');
-
-  const fabWrap = document.getElementById('stock-fab-wrap');
-  const possibles = ctx.fabricantsPossibles || [];
-  if (ctx.fabSuggere) {
-    fabWrap.innerHTML = `<input id="stock-fab" type="text" value="${ctx.fabSuggere}" style="width:100%;padding:6px 9px;border:0.5px solid var(--ok-b);border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary);font-size:12px;font-family:var(--font-sans)" title="Déduit automatiquement du MPN dans la GSheet appro">`;
-  } else if (possibles.length > 1) {
-    fabWrap.innerHTML = `<select id="stock-fab" style="width:100%;padding:6px 9px;border:0.5px solid var(--wa-b);border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary);font-size:12px;font-family:var(--font-sans)">` +
-      `<option value="">— choisir —</option>` +
-      possibles.map(f => `<option value="${f}">${f}</option>`).join('') +
-      `</select>`;
-  } else if (possibles.length === 1) {
-    fabWrap.innerHTML = `<input id="stock-fab" type="text" value="${possibles[0]}" style="width:100%;padding:6px 9px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary);font-size:12px;font-family:var(--font-sans)">`;
-  } else {
-    fabWrap.innerHTML = `<input id="stock-fab" type="text" placeholder="Non trouvé dans l'appro — saisie libre" style="width:100%;padding:6px 9px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary);font-size:12px;font-family:var(--font-sans)">`;
-  }
 
   const [emplacements, verif] = await Promise.all([
     chargerEmplacementsStock(),
@@ -901,10 +888,28 @@ async function ouvrirPopupStock(ctx) {
     })()
   ]);
 
-  if (verif.fab) {
-    const fabEl = document.getElementById('stock-fab');
-    if (fabEl) fabEl.value = verif.fab;
+  // Priorité du fabricant : toujours celui de l'appro/Luminovo (Approved parts) en premier —
+  // c'est celui que Luminovo reconnaîtra pour matcher le stock plus tard. Le fabricant déjà
+  // enregistré en stock n'est utilisé qu'en dernier recours (aucune autre source disponible),
+  // pour corriger progressivement d'éventuelles erreurs de frappe historiques dans STK PP.
+  const fabWrap = document.getElementById('stock-fab-wrap');
+  const possibles = ctx.fabricantsPossibles || [];
+  const styleBase = "width:100%;padding:6px 9px;border-radius:var(--radius);background:var(--surface-1);color:var(--text-primary);font-size:12px;font-family:var(--font-sans);border:0.5px solid";
+  if (ctx.fabSuggere) {
+    fabWrap.innerHTML = `<input id="stock-fab" type="text" value="${ctx.fabSuggere}" style="${styleBase} var(--ok-b)" title="Déduit automatiquement du MPN dans la GSheet appro (prioritaire sur le stock existant)">`;
+  } else if (possibles.length > 1) {
+    fabWrap.innerHTML = `<select id="stock-fab" style="${styleBase} var(--wa-b)">` +
+      `<option value="">— choisir —</option>` +
+      possibles.map(f => `<option value="${f}"${f === verif.fab ? ' selected' : ''}>${f}</option>`).join('') +
+      `</select>`;
+  } else if (possibles.length === 1) {
+    fabWrap.innerHTML = `<input id="stock-fab" type="text" value="${possibles[0]}" style="${styleBase} var(--border)">`;
+  } else if (verif.fab) {
+    fabWrap.innerHTML = `<input id="stock-fab" type="text" value="${verif.fab}" style="${styleBase} var(--border)" title="Repris du stock existant — non trouvé dans l'appro">`;
+  } else {
+    fabWrap.innerHTML = `<input id="stock-fab" type="text" placeholder="Non trouvé — saisie libre" style="${styleBase} var(--border)">`;
   }
+
   document.getElementById('stock-statut-existe').textContent = verif.existe
     ? `✓ Article déjà en stock (actuellement ${verif.qte_actuelle ?? '?'} en "${verif.lieu}")`
     : 'Nouvel article — sélectionnez un emplacement';
