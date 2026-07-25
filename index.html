@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Proto Process — Appro V2</title>
+<title>Proto Process — Appro V2 — v2.0 — 25/07/2026</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
 <style>
 :root {
@@ -33,6 +33,7 @@ body { font-family: var(--font-sans); font-size: 13px; color: var(--text-primary
 
 .app { background: var(--surface-0); border-radius: 12px; border: 0.5px solid var(--border); overflow: hidden; }
 .hdr { background: #0f1117; padding: 0 20px; height: 52px; display: flex; align-items: center; justify-content: space-between; }
+.hdr-note { font-size: 11px; color: #64748b; font-family: Consolas, monospace; }
 .logo { display: flex; align-items: center; gap: 10px; }
 .lt { color: #fff; font-size: 13px; font-weight: 500; }
 .ls { color: #444; margin: 0 3px; }
@@ -180,6 +181,7 @@ input[type="number"].qerr { border-color: var(--er-t); background: rgba(163,45,4
       <div class="logo">
         <img src="picto-pp.png" alt="Proto Process" width="26" height="26" style="object-fit:contain" onerror="this.style.display='none'">
         <span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Appro V2</span>
+        <span class="hdr-note" id="hdr-version" style="margin-left:8px">v2.0 — 25/07/2026</span>
       </div>
       <div class="hstats">
         <div class="hs er"><strong id="stat-alertes">—</strong> alertes</div>
@@ -347,6 +349,15 @@ input[type="number"].qerr { border-color: var(--er-t); background: rgba(163,45,4
 <div id="toast"></div>
 
 <script>
+/* ---------- version ---------- */
+// Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
+// Un seul endroit a modifier a chaque mise a jour ; se repercute
+// automatiquement dans le titre d'onglet et le badge d'en-tete.
+const APP_VERSION = "2.0";
+const APP_DATE = "25/07/2026";
+document.title = `Proto Process — Appro V2 — v${APP_VERSION} — ${APP_DATE}`;
+document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
+
 const WEBHOOK_SUIVI = 'https://protoprocess.app.n8n.cloud/webhook/v2-get-suivi';
 
 const FOURNISSEUR_BADGE = {
@@ -483,7 +494,7 @@ function renderCarteCommande(cmd) {
 
     return `
       <div class="bls">
-        <span class="bld ${blDot}"></span><span class="bll">${(bl.n_bl || bl.n_tracking) ? ('BL ' + (bl.n_bl || bl.n_tracking)) : 'Sans BL'}</span>
+        <span class="bld ${blDot}"></span><span class="bll">${bl.n_bl ? ('BL ' + bl.n_bl) : 'Sans BL'}</span>
         <span class="bli">${infoParts.join(' · ')}</span>
         <div class="bls-r">${trackingHtml}<span class="pill ${blOk ? 'p-ok' : 'p-gy'}">${bl.statut_bl || 'Commandé'}</span></div>
       </div>
@@ -648,8 +659,7 @@ function renderLigneReception(c, cardId, idx) {
 
   const sousLigne = [
     (l.ipn && l.mpn && l.mpn !== l.ipn) ? l.mpn : '',
-    (!estInventory && l.fournisseurRef) ? l.fournisseurRef : '',
-    (!estInventory && l.bl_email) ? ('BL ' + l.bl_email) : ''
+    (!estInventory && l.fournisseurRef) ? l.fournisseurRef : ''
   ].filter(Boolean).join(' · ');
 
   return `
@@ -695,8 +705,6 @@ function renderCarteReception(c) {
   }
 
   const metaBits = [c.client, c.carte, c.datePrevu && c.datePrevu !== '—' ? ('Prévu le ' + c.datePrevu) : null].filter(Boolean).join(' · ');
-  const colisNums = (c.colisN2 || []).map(k => k.n_bl || k.tracking).filter(Boolean);
-  const colisHeader = colisNums.length ? ` <span style="color:var(--text-muted)">·</span> <i class="ti ti-package" style="font-size:10px" aria-hidden="true"></i> <span style="font-family:var(--font-mono,monospace)">${colisNums.join(' · ')}</span>` : '';
   const lignesHtml = c.lignes.map((l, idx) => renderLigneReception(c, cardId, idx)).join('');
   const lienAppro = c.urlAppro ? `<a href="${c.urlAppro}" target="_blank" style="color:var(--pp-blue);text-decoration:none;font-size:11px;margin-left:8px"><i class="ti ti-external-link" style="font-size:10px" aria-hidden="true"></i> GSheet</a>` : '';
 
@@ -706,13 +714,12 @@ function renderCarteReception(c) {
         <span class="fb ${badge}">${(c.fournisseur || 'INCONNU').toUpperCase()}</span>
         <div class="ci">
           <div class="cso">${c.so} ${pillHtml}</div>
-          <div class="cm">${metaBits || '—'}${colisHeader}</div>
+          <div class="cm">${metaBits || '—'}</div>
         </div>
         <div class="pw"><div class="pb"><div class="pf ${pfClass}" style="width:${pct}%"></div></div><span class="pp2">${recues}/${total}</span></div>
         <i class="ti ti-chevron-down chv" aria-hidden="true"></i>
       </div>
       <div class="cbdy">
-        ${(c.colisN2 && c.colisN2.length) ? `<div style="padding:6px 15px;font-size:11px;color:var(--text-muted);border-bottom:0.5px solid var(--border);display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center"><span><i class="ti ti-package" style="font-size:11px" aria-hidden="true"></i> ${c.colisN2.length} colis</span>${c.colisN2.map(k => `<span style="font-family:var(--font-mono,monospace)">${k.n_bl || k.tracking}${k.date_expedition ? ' · ' + fmtDate(k.date_expedition) : ''}${k.statut ? ' · ' + k.statut : ''}</span>`).join('')}</div>` : ''}
         ${c.lignesCompletes > 0 ? `<div style="padding:6px 15px;font-size:11px;color:var(--text-muted);background:rgba(59,109,17,.04);border-bottom:0.5px solid var(--border)">✓ ${c.lignesCompletes} ligne${c.lignesCompletes > 1 ? 's' : ''} déjà complète${c.lignesCompletes > 1 ? 's' : ''} (masquée${c.lignesCompletes > 1 ? 's' : ''})</div>` : ''}
         <table class="lt2">
           <thead><tr><th>IPN</th><th style="text-align:center">Attendu</th><th style="text-align:center">Besoin</th><th style="text-align:center">Reçu</th><th style="text-align:center">Statut</th><th style="text-align:right">Ressources</th></tr></thead>
